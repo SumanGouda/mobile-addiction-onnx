@@ -1,0 +1,40 @@
+[project]
+name = "mobile-addiction-prediction"
+version = "0.1.0"
+description = "Predicting mobile addiction from tabular behavioral data, deployed on-device"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "matplotlib",
+    "seaborn",
+    "joblib",
+    "pyjanitor",
+    "xgboost",
+    "requests",
+    "tqdm-joblib",
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic",
+]
+
+[project.optional-dependencies]
+mobile = [
+    "onnx",
+    "onnxruntime",
+    "skl2onnx",       # sklearn -> ONNX export
+]
+dev = [
+    "pytest",
+    "black",
+    "ruff",
+    "jupyter",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

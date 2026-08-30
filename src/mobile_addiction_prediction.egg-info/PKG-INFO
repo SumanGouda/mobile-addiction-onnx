@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: mobile-addiction-prediction
+Version: 0.1.0
+Summary: Predicting mobile addiction from tabular behavioral data, deployed on-device
+Requires-Python: <3.13,>=3.12
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: scikit-learn
+Requires-Dist: matplotlib
+Requires-Dist: seaborn
+Requires-Dist: joblib
+Requires-Dist: pyjanitor
+Requires-Dist: xgboost
+Requires-Dist: requests
+Requires-Dist: tqdm-joblib
+Requires-Dist: fastapi
+Requires-Dist: uvicorn[standard]
+Requires-Dist: pydantic
+Provides-Extra: mobile
+Requires-Dist: onnx; extra == "mobile"
+Requires-Dist: onnxruntime; extra == "mobile"
+Requires-Dist: skl2onnx; extra == "mobile"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: jupyter; extra == "dev"

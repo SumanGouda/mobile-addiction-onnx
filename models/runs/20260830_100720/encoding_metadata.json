@@ -1,0 +1,17 @@
+{
+  "gender": {
+    "method": "one_hot",
+    "categories": [
+      "Female",
+      "Male",
+      "Other",
+      "Unknown"
+    ],
+    "dropped_baseline": "Female",
+    "resulting_columns": [
+      "gender_Male",
+      "gender_Other",
+      "gender_Unknown"
+    ]
+  }
+}
