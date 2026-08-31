@@ -18,7 +18,7 @@ dependencies = [
     "uvicorn[standard]",
     "pydantic",
 ]
-
+k
 [project.optional-dependencies]
 mobile = [
     "onnx",
@@ -30,6 +30,10 @@ dev = [
     "black",
     "ruff",
     "jupyter",
+    "httpx",
+]
+tracking = [
+    "mlflow",
 ]
 
 [build-system]
@@ -38,3 +42,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

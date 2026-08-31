@@ -25,3 +25,6 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
 Requires-Dist: jupyter; extra == "dev"
+Requires-Dist: httpx; extra == "dev"
+Provides-Extra: tracking
+Requires-Dist: mlflow; extra == "tracking"

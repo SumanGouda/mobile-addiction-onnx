@@ -4,6 +4,7 @@ together under models/runs/<run_id>/.
 """
 import json
 import shutil
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -17,7 +18,7 @@ from src.models.train import split_data, train_xgb_with_gridsearch
 
 from utils.helpers import ensure_path, load_json_config
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]  # src/pipeline/train_pipeline.py -> project root
+PROJECT_ROOT = Path(__file__).resolve().parents[1]  # pipeline/train_pipeline.py -> project root
 DATA_RAW_DIR = PROJECT_ROOT / "data" / "raw"
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 RUNS_DIR = PROJECT_ROOT / "models" / "runs"
@@ -31,7 +32,7 @@ def main():
     run_dir = RUNS_DIR / run_id
     ensure_path(run_dir, is_file=False)
 
-    for cfg_file in ["pipeline_config.json", "xgb_param_grid.json", "label_encodings.json"]:
+    for cfg_file in ["pipeline_config.json", f"{cfg['model_type']}_param_grid.json", "label_encodings.json"]:
         shutil.copy(CONFIGS_DIR / cfg_file, run_dir / cfg_file)
 
     raw_data_path = DATA_RAW_DIR / cfg["raw_train_filename"]
@@ -74,8 +75,9 @@ def main():
         random_state=cfg["random_state"],
     )
 
-    param_grid = load_json_config(CONFIGS_DIR / "xgb_param_grid.json")
+    param_grid = load_json_config(CONFIGS_DIR / f"{cfg['model_type']}_param_grid.json")
 
+    training_start = time.time()
     grid_search = train_xgb_with_gridsearch(
         X_train,
         y_train,
@@ -84,6 +86,7 @@ def main():
         random_state=cfg["random_state"],
     )
     best_model = grid_search["best_estimator_"]
+    training_duration_seconds = time.time() - training_start
 
     params_path = run_dir / cfg["params_filename"]
     ensure_path(params_path, is_file=True)
@@ -100,6 +103,10 @@ def main():
         "val_accuracy": val_results["accuracy"],
         "test_accuracy": test_results["accuracy"],
         "best_cv_score": grid_search["best_score_"],
+        "training_duration_seconds": round(training_duration_seconds, 2),
+        "val_classification_report": val_results["report"],
+        "test_classification_report": test_results["report"],
+        "test_confusion_matrix": test_results["confusion_matrix"].tolist(),
     }
     metrics_path = run_dir / cfg["metrics_filename"]
     ensure_path(metrics_path, is_file=True)

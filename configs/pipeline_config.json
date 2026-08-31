@@ -1,4 +1,5 @@
 {
+    "model_type": "xgboost",
     "target_col": "addicted_label",
     "random_state": 42,
     "cv_folds": 5,

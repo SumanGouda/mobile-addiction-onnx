@@ -17,8 +17,12 @@ pytest
 black
 ruff
 jupyter
+httpx
 
 [mobile]
 onnx
 onnxruntime
 skl2onnx
+
+[tracking]
+mlflow

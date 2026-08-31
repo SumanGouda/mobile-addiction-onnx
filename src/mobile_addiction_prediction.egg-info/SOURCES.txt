@@ -12,4 +12,7 @@ src/models/evaluate.py
 src/models/predict.py
 src/models/train.py
 src/pipeline/train_pipeline.py
-tests/test_weather_api.py
+tests/test_api.py
+tests/test_cleaning.py
+tests/test_encoding.py
+tests/test_predict.py
