@@ -32,13 +32,31 @@ def align_features(df: pd.DataFrame, expected_features: list) -> pd.DataFrame:
 
 
 def predict_proba(model, X: pd.DataFrame) -> np.ndarray:
-    """Generate class-1 probabilities from a fitted classifier.
+    """Generate class-1 probabilities from a fitted classifier or MLflow PyFunc model.
 
     Args:
-        model: A fitted classifier with a `.predict_proba()` method.
+        model: Fitted classifier (with `.predict_proba()`) or an MLflow `PyFuncModel`.
         X: Feature matrix to predict on.
 
     Returns:
         Array of predicted probabilities for the positive class.
-    """
-    return model.predict_proba(X)[:, 1]
+    """ 
+    if hasattr(model, "predict_proba"):
+        probabilities = model.predict_proba(X)
+        if probabilities.ndim == 2 and probabilities.shape[1] > 1:
+            return probabilities[:, 1]
+        return probabilities.ravel()
+ 
+    if hasattr(model, "predict"):
+        preds = model.predict(X)
+        if isinstance(preds, pd.DataFrame):
+            preds = preds.values
+        elif not isinstance(preds, np.ndarray):
+            preds = np.array(preds)
+ 
+        if preds.ndim == 2 and preds.shape[1] > 1:
+            return preds[:, 1]
+         
+        return preds.ravel()
+
+    raise AttributeError("The provided model has neither 'predict_proba' nor 'predict' methods.")
