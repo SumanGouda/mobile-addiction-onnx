@@ -1,4 +1,27 @@
-# Environments
+# Virtual Environment
 .venv/
+venv/
+ENV/
 
+# Testing & Cache
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# MLflow Tracking & Database
+mlruns/
+mlflow.db
+
+# Data & Models (Ignores generated datasets & model files, keeps empty folders)
 data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
+
+# OS Specific
+.DS_Store
+Thumbs.db
+*.db
