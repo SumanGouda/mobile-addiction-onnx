@@ -5,23 +5,39 @@ ENV/
 
 # Testing & Cache
 .pytest_cache/
+.coverage
+htmlcov/
 __pycache__/
 *.py[cod]
 
-# MLflow Tracking & Database
+# MLflow Tracking & Artifacts
 mlruns/
 mlflow.db
+mlartifacts/
 
-# Data & Models (Ignores generated datasets & model files, keeps empty folders)
+# Data & Models (Ignores generated datasets & model files, keeps tracking files)
 data/*
 !data/.gitkeep
 models/*
 !models/.gitkeep
 
-# Jupyter Notebook Checkpoints
+# Jupyter Notebook & Outputs
 .ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Environment Variables & Local Secrets
+.env
+.env.local
+
+# IDE & Editor Settings
+.vscode/
+.idea/
 
 # OS Specific
 .DS_Store
 Thumbs.db
 *.db
+
+# Logs & Temporary Files
+*.log
+*.tmp

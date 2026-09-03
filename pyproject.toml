@@ -17,8 +17,10 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "pydantic",
+    "pydantic-settings",
+    "catboost",
 ]
-k
+
 [project.optional-dependencies]
 mobile = [
     "onnx",

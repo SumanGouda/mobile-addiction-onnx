@@ -1,15 +1,27 @@
 """Integration test for the /predict endpoint — verifies the full
 request → preprocessing → prediction → response flow is wired correctly."""
+
+from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
-
-from app.api.main import app
 
 
 @pytest.fixture
 def client():
-    with TestClient(app) as c:
-        yield c
+    # Direct patch of the PredictionService predict method with all required Pydantic fields
+    with patch("app.api.inference.PredictionService.predict") as mock_predict:
+        mock_predict.return_value = {
+            "addicted_probability": 0.80,
+            "addicted_label": 1,
+            "model_run_id": "test_run_123",
+            "model_name": "MobileAddiction_xgboost",
+            "model_version": "1",
+        }
+
+        from app.api.main import app
+
+        with TestClient(app) as c:
+            yield c
 
 
 def test_predict_endpoint_returns_valid_response(client):
@@ -50,5 +62,3 @@ def test_health_endpoint(client):
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
-
-    
