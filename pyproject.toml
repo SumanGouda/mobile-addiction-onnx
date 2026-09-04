@@ -18,7 +18,6 @@ dependencies = [
     "uvicorn[standard]",
     "pydantic",
     "pydantic-settings",
-    "catboost",
 ]
 
 [project.optional-dependencies]
