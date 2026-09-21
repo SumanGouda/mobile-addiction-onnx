@@ -24,6 +24,10 @@ models/*
 # Jupyter Notebook & Outputs
 .ipynb_checkpoints/
 *.ipynb_checkpoints
+notebooks/
+notebook/
+*.ipynb
+
 
 # Environment Variables & Local Secrets
 .env
