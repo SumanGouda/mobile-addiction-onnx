@@ -1,5 +1,0 @@
-data
-features
-mobile_export
-models
-pipeline

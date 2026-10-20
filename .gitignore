@@ -4,7 +4,7 @@ venv/
 ENV/
 
 # Testing & Cache
-.pytest_cache/
+.pytest_cache/ 
 .coverage
 htmlcov/
 __pycache__/
@@ -24,8 +24,8 @@ models/*
 # Jupyter Notebook & Outputs
 .ipynb_checkpoints/
 *.ipynb_checkpoints
-notebooks/
-notebook/
+*notebooks/
+*notebook/
 *.ipynb
 
 
