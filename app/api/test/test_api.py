@@ -11,41 +11,45 @@ API_URL = "http://127.0.0.1:8000/predict"
 
 
 def get_data_dict(csv_path: str = None) -> Dict:
-    """Pick a random complete (no missing values) row from the raw test
-    CSV and return it as a dict shaped for the /predict API — i.e. with
-    the `id` column dropped, since the model doesn't use it.
-
-    Args:
-        csv_path: Path to the raw CSV to sample from. Defaults to
-            data/raw/test.csv.
-
-    Returns:
-        A dict of raw feature values, ready to send as a JSON request body.
-    """
     path = Path(csv_path) if csv_path else TEST_CSV_PATH
     df = pd.read_csv(path)
 
     df = df.drop(columns=["id"], errors="ignore")
 
-    # Only sample rows with no missing values — the API requires every
-    # field to be present.
     complete_rows = df.dropna()
     if complete_rows.empty:
-        raise ValueError("No complete (non-missing) rows found to sample from.")
+        raise ValueError("No complete rows found to sample from.")
 
     row = complete_rows.sample(n=1).iloc[0]
-    return row.to_dict()
+
+    # Convert NumPy data types (int64, float64) to native Python types
+    return {
+        k: (v.item() if hasattr(v, "item") else v)
+        for k, v in row.to_dict().items()
+    }
 
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     payload = get_data_dict(TEST_CSV_PATH)
 
-    # Automated E2E Test
     try:
         response = requests.post(API_URL, json=payload)
-         
-        print(f"Status Code: {response.status_code}")
-        print("Response Body:")
-        print(response.json())
+
+        if response.status_code == 200:
+            data = response.json()
+            prob = data.get("addicted_probability", 0)
+            label = "Addicted" if data.get("addicted_label") == 1 else "Not Addicted"
+
+            print("\n" + "=" * 40)
+            print("         INFERENCE API TEST RESULT       ")
+            print("=" * 40)
+            print(f" Status        : {response.status_code} OK")
+            print(f" Prediction    : {label}")
+            print(f" Probability   : {prob:.4f} ({prob * 100:.2f}%)")
+            print(f" Model Run ID  : {data.get('model_run_id')}")
+            print("=" * 40 + "\n")
+        else:
+            print(f"\n[Error {response.status_code}] {response.text}\n")
+
     except requests.exceptions.ConnectionError:
-        print(f"Error: Could not connect to API at {API_URL}. Is your FastAPI server running?")
+        print(f"\n[Connection Failure] Unable to reach {API_URL}. Is Uvicorn running?\n")

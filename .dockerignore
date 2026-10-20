@@ -1,0 +1,10 @@
+.venv/
+data/
+notebooks/
+tests/
+mlruns/
+mlflow.db
+*.pyc
+__pycache__/
+.pytest_cache/
+.git/

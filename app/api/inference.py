@@ -1,54 +1,124 @@
-"""Inference logic for the prediction API — loads a specific trained run
-and applies the same preprocessing used during training/batch inference."""
-import pandas as pd
+"""Inference logic for the prediction API — loads a registered model from
+MLflow's Model Registry using dynamic Pydantic settings."""
+import json
 from pathlib import Path
 
+import mlflow
+import mlflow.pyfunc
+import mlflow.xgboost
+import pandas as pd
+from mlflow.artifacts import download_artifacts
+from mlflow.tracking import MlflowClient
+
+from app.core.config import settings
 from src.features.encoding import apply_gender_encoding, label_encode_columns
-from src.models.predict import align_features, load_model, predict_proba
+from src.models.predict import align_features
 from utils.helpers import load_json_config
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]      # app/api/inference.py -> project root
-CONFIGS_DIR = PROJECT_ROOT / "configs"
-RUN_ID = "20260830_100720"                              # <-- set to the run you want to serve
-RUN_DIR = PROJECT_ROOT / "models" / "runs" / RUN_ID
+# Set MLflow tracking URI directly from settings
+mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
 
 
 class PredictionService:
-    """Loads a trained model + its encoding metadata once, and serves
-    predictions on individual raw feature dicts."""
 
-    def __init__(self):
-        self.run_id = RUN_ID
-        self.model = load_model(str(RUN_DIR / "xgb_addiction_model.pkl"))
-        self.expected_features = self.model.get_booster().feature_names
+    def __init__(
+        self, model_name: str = None, version: str = None
+    ):
+        self.model_name = model_name or settings.MODEL_NAME
+        self.version = version or settings.MODEL_VERSION
 
-        self.label_encodings = load_json_config(str(CONFIGS_DIR / "label_encodings.json"))
-        self.encoding_metadata_path = str(RUN_DIR / "encoding_metadata.json")
+        # 1. Resolve run_id from Model Registry
+        client = MlflowClient()
+        model_ver_info = client.get_model_version(
+            name=self.model_name, version=self.version
+        )
+        self.run_id = model_ver_info.run_id
+
+        # 2. Load model via pyfunc (and keep underlying model reference if available)
+        self.model_uri = f"runs:/{self.run_id}/model"
+        self.pyfunc_model = mlflow.pyfunc.load_model(self.model_uri)
+
+        # Extract native XGBoost model to access predict_proba / DMatrix predictions
+        try:
+            if hasattr(self.pyfunc_model._model_impl, "xgboost_model"):
+                self.native_model = self.pyfunc_model._model_impl.xgboost_model
+            else:
+                self.native_model = mlflow.xgboost.load_model(self.model_uri)
+        except Exception:
+            self.native_model = None
+
+        # 3. Extract expected feature names
+        try:
+            booster = (
+                self.native_model.get_booster()
+                if hasattr(self.native_model, "get_booster")
+                else self.native_model
+            )
+            self.expected_features = booster.feature_names
+        except Exception:
+            self.expected_features = None
+
+        # 4. Load label encodings
+        try:
+            encoding_path = download_artifacts(
+                artifact_uri=f"runs:/{self.run_id}/configs/label_encodings.json"
+            )
+            with open(encoding_path, "r") as f:
+                self.label_encodings = json.load(f)
+        except Exception:
+            self.label_encodings = load_json_config(
+                str(settings.CONFIGS_DIR / "label_encodings.json")
+            )
+
+        # 5. Download gender encoding metadata
+        try:
+            self.encoding_metadata_path = download_artifacts(
+                artifact_uri=f"runs:/{self.run_id}/encoding/encoding_metadata_temp.json"
+            )
+        except Exception:
+            self.encoding_metadata_path = str(
+                settings.CONFIGS_DIR / "encoding_metadata_temp.json"
+            )
 
     def predict(self, raw_input: dict) -> dict:
-        """Run the full preprocessing + prediction pipeline on a single
-        raw feature dict.
-
-        Args:
-            raw_input: Dict of raw feature values, matching PredictionRequest.
-
-        Returns:
-            Dict with addicted_probability, addicted_label, model_run_id.
-        """
+        """Run full preprocessing + prediction pipeline on a single raw feature dict."""
         df = pd.DataFrame([raw_input])
 
         df = label_encode_columns(df, self.label_encodings)
-        df = apply_gender_encoding(df, metadata_path=self.encoding_metadata_path)
+        df = apply_gender_encoding(
+            df, metadata_path=self.encoding_metadata_path
+        )
 
-        df = align_features(df, self.expected_features)
+        if self.expected_features:
+            df = align_features(df, self.expected_features)
 
-        proba = predict_proba(self.model, df)[0]
+        # Get continuous probability score
+        if self.native_model and hasattr(self.native_model, "predict_proba"):
+            # Native XGBClassifier: predict_proba returns [[prob_0, prob_1]]
+            proba_array = self.native_model.predict_proba(df)
+            proba = float(proba_array[0][1])
+        elif self.native_model and hasattr(self.native_model, "predict"):
+            import xgboost as xgb
+
+            dmatrix = xgb.DMatrix(df)
+            proba_array = self.native_model.predict(dmatrix)
+            proba = float(proba_array[0])
+        else:
+            # Fallback to pyfunc prediction
+            pred_output = self.pyfunc_model.predict(df)
+            proba = float(
+                pred_output[0][1]
+                if getattr(pred_output, "ndim", 1) > 1
+                else pred_output[0]
+            )
+
         label = int(proba > 0.5)
 
         return {
-            "addicted_probability": float(proba),
+            "addicted_probability": proba,
             "addicted_label": label,
+            "model_name": self.model_name,
+            "model_version": self.version,
             "model_run_id": self.run_id,
         }
-
     
