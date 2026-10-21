@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # ==========================================
 # System & Path Configurations
@@ -38,3 +39,10 @@ PARAM_GRID = {
 }
 TARGET_FEAT = "addicted_label"
 DATASET = PROCESSED_DATA_TRAIN
+
+# ==========================================
+# Model Serving Settings
+# ==========================================
+MODEL_TYPE = os.getenv("MODEL_TYPE", "xgboost")
+MODEL_VERSION = os.getenv("MODEL_VERSION", "1")
+MODEL_NAME = f"MobileAddiction_{MODEL_TYPE}"

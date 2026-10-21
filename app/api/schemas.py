@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-
+from typing import Literal 
+from pydantic import BaseModel, ConfigDict, Field
 
 class PredictionRequest(BaseModel):
     age: float
@@ -11,13 +11,14 @@ class PredictionRequest(BaseModel):
     notifications_per_day: float
     app_opens_per_day: float
     weekend_screen_time: float
-    gender: str
-    stress_level: str
-    academic_work_impact: str
+    gender: Literal["Male", "Female", "Other"]
+    stress_level: Literal["Low", "Medium", "High"]
+    academic_work_impact: Literal["Yes", "No"]
 
 
 class PredictionResponse(BaseModel):
-    addicted_probability: float = Field(..., ge=0.0, le=1.0)    # ge=0.0 means Greater than or Equal to 0.0, and le=1.0 means Less than or Equal to 1.0
+    model_config = ConfigDict(protected_namespaces=())
+    addicted_probability: float = Field(..., ge=0.0, le=1.0)    
     addicted_label: int = Field(..., ge=0, le=1)
     model_name: str
     model_version: str

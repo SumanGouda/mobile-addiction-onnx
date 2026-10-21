@@ -90,6 +90,7 @@ def handle_missing_values(df: pd.DataFrame, col: str,) -> tuple[pd.DataFrame, di
 
     return df, metadata
 
+
 def encode_column_ohe(df: pd.DataFrame, column: str, drop_first: bool = True) -> tuple[pd.DataFrame, dict]:
     """Generates one-hot encoded dummies and tracks category mappings and dropped reference level."""
     categories = sorted(df[column].dropna().unique().tolist())
@@ -102,3 +103,38 @@ def encode_column_ohe(df: pd.DataFrame, column: str, drop_first: bool = True) ->
         "dropped_baseline_category" : dropped_feature,
     }
     return dummies, metadata
+
+
+def preprocess_single_row(raw: dict, encoding_meta: dict, fill_meta: dict) -> pd.DataFrame:
+    """
+        Clean one raw input dict the same way the training pipeline cleaned the data.
+
+        Args:
+            raw: Raw input values, e.g. {"age": 21, "gender": "Male", ...}.
+            encoding_meta: Parsed encoding_metadata_train.json.
+            fill_meta: Parsed fill_missing_train.json.
+
+        Returns:
+            A one-row DataFrame with dummies, filled values and indicator columns.
+    """
+    row = dict(raw) 
+    for col, entry in encoding_meta.items():
+        meta = entry["metadata"]
+        value = row.pop(col, None)
+        if not pd.isna(value) and value not in meta["all_categories"]:
+            raise ValueError(f"'{col}' has unseen category '{value}'. Expected one of {meta['all_categories']}")
+        for enc_col in meta["encoded_columns"]:
+            category = enc_col[len(col) + 1:]  
+            row[enc_col] = int(value == category)
+ 
+    for col, info in fill_meta.items():
+        if info["fill_value"] is None:
+            continue
+        is_missing = col not in row or pd.isna(row[col])
+        if info["indicator_column"]:
+            row[info["indicator_column"]] = int(is_missing)
+        if is_missing:
+            row[col] = info["fill_value"]
+
+    return pd.DataFrame([row])
+

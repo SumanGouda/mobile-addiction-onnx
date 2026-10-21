@@ -153,7 +153,7 @@ def test_produces_expected_dummy_columns():
     baseline, each prefixed with the original column name."""
     df = pd.DataFrame({"gender": ["Male", "Female", "Other", "Male"]})
 
-    dummies, metadata = _encode_column_ohe(df, "gender")
+    dummies, metadata = encode_column_ohe(df, "gender")
 
     # Female is dropped (alphabetically first), Male and Other remain
     assert set(dummies.columns) == {"gender_Male", "gender_Other"}
@@ -165,7 +165,7 @@ def test_dropped_baseline_is_first_alphabetical_category():
     matching pd.get_dummies(drop_first=True) behavior."""
     df = pd.DataFrame({"gender": ["Other", "Male", "Female"]})
 
-    _, metadata = _encode_column_ohe(df, "gender")
+    _, metadata = encode_column_ohe(df, "gender")
 
     assert metadata["dropped_baseline_category"] == "Female"
     assert metadata["all_categories"] == ["Female", "Male", "Other"]
@@ -176,7 +176,7 @@ def test_drop_first_false_keeps_all_categories():
     column, and dropped_baseline_category should be None."""
     df = pd.DataFrame({"gender": ["Male", "Female", "Other"]})
 
-    dummies, metadata = _encode_column_ohe(df, "gender", drop_first=False)
+    dummies, metadata = encode_column_ohe(df, "gender", drop_first=False)
 
     assert set(dummies.columns) == {"gender_Female", "gender_Male", "gender_Other"}
     assert metadata["dropped_baseline_category"] is None
@@ -187,7 +187,7 @@ def test_nan_values_excluded_from_categories_but_row_preserved():
     should still exist in the output (all-zero across dummy columns)."""
     df = pd.DataFrame({"gender": ["Male", None, "Female"]})
 
-    dummies, metadata = _encode_column_ohe(df, "gender")
+    dummies, metadata = encode_column_ohe(df, "gender")
 
     assert None not in metadata["all_categories"]
     assert len(dummies) == 3  # row count preserved
@@ -200,7 +200,7 @@ def test_dummy_values_are_int_not_bool():
     explicitly passed to get_dummies."""
     df = pd.DataFrame({"gender": ["Male", "Female"]})
 
-    dummies, _ = _encode_column_ohe(df, "gender")
+    dummies, _ = encode_column_ohe(df, "gender")
 
     for col in dummies.columns:
         assert dummies[col].dtype == int or dummies[col].dtype == "int64"
@@ -211,7 +211,7 @@ def test_row_values_correctly_reflect_original_category():
     original category — the actual correctness check, not just shape."""
     df = pd.DataFrame({"gender": ["Male", "Other", "Female"]})
 
-    dummies, _ = _encode_column_ohe(df, "gender")
+    dummies, _ = encode_column_ohe(df, "gender")
 
     assert dummies.loc[0, "gender_Male"] == 1
     assert dummies.loc[0, "gender_Other"] == 0
@@ -228,7 +228,7 @@ def test_single_category_column_with_drop_first():
     in zero dummy columns and that category as the dropped baseline."""
     df = pd.DataFrame({"gender": ["Male", "Male", "Male"]})
 
-    dummies, metadata = _encode_column_ohe(df, "gender")
+    dummies, metadata = encode_column_ohe(df, "gender")
 
     assert len(dummies.columns) == 0
     assert metadata["dropped_baseline_category"] == "Male"
@@ -239,6 +239,6 @@ def test_all_categories_sorted():
     this is what determines which category becomes the dropped baseline."""
     df = pd.DataFrame({"gender": ["Other", "Female", "Male", "Other"]})
 
-    _, metadata = _encode_column_ohe(df, "gender")
+    _, metadata = encode_column_ohe(df, "gender")
 
     assert metadata["all_categories"] == sorted(metadata["all_categories"])

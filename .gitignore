@@ -45,3 +45,6 @@ Thumbs.db
 # Logs & Temporary Files
 *.log
 *.tmp
+
+# Extra files
+cmd.txt

@@ -1,9 +1,39 @@
-from pathlib import Path
-import pandas as pd
-import matplotlib.pyplot as plt
+import json
+import mlflow
 import numpy as np
-import seaborn as sns
+import pandas as pd
+import seaborn as sns 
+from typing import Any
+from pathlib import Path 
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
 
+
+def load_registered_model(model_type: str, uri: str):
+    """Load a model with robust flavor fallback for sklearn-logged models."""
+    if model_type == "xgboost":
+        try:
+            import mlflow.xgboost
+            return mlflow.xgboost.load_model(uri)
+        except Exception:
+            import mlflow.sklearn
+            return mlflow.sklearn.load_model(uri)
+            
+    if model_type == "catboost":
+        import mlflow.catboost
+        return mlflow.catboost.load_model(uri)
+        
+    import mlflow.sklearn
+    return mlflow.sklearn.load_model(uri)
+
+
+def load_json_config(path) -> dict:
+    """Load a JSON file, failing with a clear error if it's missing."""
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Required JSON file not found: {path}")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 def check_file_exists(path: Path, expected_type: str, create_if_missing: bool = True,) -> bool:
     """Check whether a file exists and is of the expected type, optionally
@@ -72,7 +102,7 @@ def apply_ohe_with_reference(df: pd.DataFrame, column: str, reference_meta: dict
 
 
 def generate_performance_plots(chunks_data):
-    """Generates visual evaluation diagnostics across multiple data chunks.
+    """Generates visual classification diagnostics (Confusion Matrices) across multiple data chunks.
 
     Parameters:
     -----------
@@ -86,60 +116,68 @@ def generate_performance_plots(chunks_data):
     Returns:
     --------
     fig : matplotlib.figure.Figure
-        Rendered figure containing Actual vs Predicted and Residual plots.
+        Rendered figure containing Confusion Matrix heatmaps.
     """
     num_chunks = len(chunks_data)
     fig, axes = plt.subplots(
-        nrows=num_chunks,
-        ncols=2,
-        figsize=(12, 5 * num_chunks),
+        nrows=1,
+        ncols=num_chunks,
+        figsize=(6 * num_chunks, 5),
         tight_layout=True,
     )
-    # Ensure axes matrix handles single-chunk cases safely
+    # Ensure axes handle single-chunk cases safely
     if num_chunks == 1:
-        axes = np.expand_dims(axes, axis=0)
+        axes = np.array([axes])
 
     for idx, (chunk_name, data) in enumerate(chunks_data.items()):
         y_true = np.array(data["y_true"])
         y_pred = np.array(data["y_pred"])
-        residuals = y_true - y_pred
+        
+        cm = confusion_matrix(y_true, y_pred)
+        ax = axes[idx] if num_chunks > 1 else axes[0]
 
-        # Subplot 1: Actual vs. Predicted
-        ax_act = axes[idx, 0]
-        ax_act.scatter(y_true, y_pred, alpha=0.5, edgecolors="k", linewidth=0.5)
-
-        # Perfect prediction reference line
-        min_val = min(y_true.min(), y_pred.min())
-        max_val = max(y_true.max(), y_pred.max())
-        ax_act.plot(
-            [min_val, max_val],
-            [min_val, max_val],
-            color="red",
-            linestyle="--",
-            label="Ideal Fit",
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            ax=ax,
+            cbar=False
         )
-        ax_act.set_title(f"{chunk_name}: Actual vs Predicted Price")
-        ax_act.set_xlabel("Actual Price")
-        ax_act.set_ylabel("Predicted Price")
-        ax_act.legend()
-        ax_act.grid(True, linestyle=":", alpha=0.6)
-
-        # Subplot 2: Residual Distribution
-        ax_res = axes[idx, 1]
-        sns.histplot(
-            residuals,
-            kde=True,
-            ax=ax_res,
-            color="teal",
-            line_kws={"linewidth": 2},
-        )
-        ax_res.axvline(
-            x=0, color="red", linestyle="--", label="Zero Residual Line"
-        )
-        ax_res.set_title(f"{chunk_name}: Residual Error Distribution")
-        ax_res.set_xlabel("Residual (Actual - Predicted)")
-        ax_res.set_ylabel("Frequency")
-        ax_res.legend()
-        ax_res.grid(True, linestyle=":", alpha=0.6)
+        ax.set_title(f"{chunk_name}: Confusion Matrix")
+        ax.set_xlabel("Predicted Label")
+        ax.set_ylabel("True Label")
 
     return fig
+
+
+def get_model_feature_order(model: Any) -> list[str]:
+    """
+        Return the feature column names a trained model expects, in training order.
+
+        Works with sklearn-style estimators (including XGBClassifier), CatBoost,
+        a raw XGBoost Booster, and MLflow pyfunc models that have a logged signature.
+    """ 
+    if hasattr(model, "feature_names_in_"):
+        return list(model.feature_names_in_)
+
+    # CatBoost
+    if getattr(model, "feature_names_", None):
+        return list(model.feature_names_)
+
+    # XGBoost sklearn wrapper or raw Booster
+    booster = model.get_booster() if hasattr(model, "get_booster") else model
+    if getattr(booster, "feature_names", None):
+        return list(booster.feature_names)
+
+    if getattr(model, "feature_name_", None):
+        return list(model.feature_name_)
+
+    # MLflow pyfunc model (uses the signature logged at training time)
+    if hasattr(model, "metadata") and model.metadata.signature is not None:
+        return list(model.metadata.get_input_schema().input_names())
+
+    raise ValueError(
+        "Could not read feature names from this model. It was probably trained "
+        "on a numpy array instead of a DataFrame, so no column names were stored."
+    )
